@@ -1,12 +1,20 @@
 import time
 import os
 
+# File name constant
+FILE_NAME = "LHMS_850003145.txt"
+
 # Add a new room to the room list
 def add_room(room_list):
     room_id = input("Enter Room ID: ")
     room_type = input("Enter Room Type (Single/Double/Suite): ")
-    room_price = float(input("Enter Room Price: "))
-    room_list.append({"Room ID": room_id, "Room Type": room_type, "Price": room_price})
+    while True:
+        try:
+            room_price = float(input("Enter Room Price: "))
+            break
+        except ValueError:
+            print("Invalid price. Please enter a valid number.")
+    room_list.append({"Room ID": room_id, "Room Type": room_type, "Price": room_price, "Allocated": False})
     print("Room added successfully.")
 
 # Remove a room from the room list
@@ -14,6 +22,9 @@ def delete_room(room_list):
     room_id = input("Enter Room ID to delete: ")
     for room in room_list:
         if room["Room ID"] == room_id:
+            if room.get("Allocated", False):
+                print(f"Room {room_id} is currently allocated and cannot be deleted.")
+                return
             room_list.remove(room)
             print(f"Room {room_id} deleted.")
             return
@@ -25,16 +36,20 @@ def display_rooms(room_list):
         print("No rooms available.")
     else:
         for room in room_list:
-            print(f"Room ID: {room['Room ID']}, Type: {room['Room Type']}, Price: ${room['Price']}")
+            status = "Allocated" if room.get("Allocated", False) else "Available"
+            print(f"Room ID: {room['Room ID']}, Type: {room['Room Type']}, Price: ${room['Price']}, Status: {status}")
 
 # Allocate a room to a customer
 def allocate_room(room_list, allocation_list):
     room_id = input("Enter Room ID to allocate: ")
     for room in room_list:
         if room["Room ID"] == room_id:
+            if room.get("Allocated", False):
+                print(f"Room {room_id} is already allocated.")
+                return
             customer_name = input("Enter Customer Name: ")
             allocation_list.append({"Room ID": room_id, "Customer Name": customer_name})
-            room_list.remove(room)
+            room["Allocated"] = True
             print(f"Room {room_id} allocated to {customer_name}.")
             return
     print(f"Room {room_id} not available.")
@@ -49,28 +64,33 @@ def display_allocation_details(allocation_list):
 
 # Handle billing and deallocation of rooms
 def billing_and_deallocation(room_list, allocation_list):
-    room_id = input("Enter Room ID to deallocate: ")
+    if not allocation_list:
+        print("No allocations to deallocate.")
+        return
 
-    # Output the room ID entered
-    print(f" Room ID {room_id} Deallocated Sucessfully: ")
-    
-    # Check if the room ID is allocated to a customer
+    room_id = input("Enter Room ID to deallocate: ")
+    print(f"Room ID {room_id} deallocated successfully.")
+
     room_found = False
-    customer_name = None  # Initialize customer_name here
-    
+    customer_name = None
+
     for allocation in allocation_list:
         if allocation["Room ID"] == room_id:
             room_found = True
-            customer_name = allocation["Customer Name"]  # Assign the customer name
-            
-            # Find the room in the original list (room_list) to get the price
+            customer_name = allocation["Customer Name"]
+
             for room in room_list:
                 if room["Room ID"] == room_id:
+                    room["Allocated"] = False
+                    allocation_list.remove(allocation)
                     print(f"Room {room_id} deallocated from {customer_name}.")
-                    room_list.append({"Room ID": room_id, "Room Type": "Unknown", "Price": room['Price']})
-                    allocation_list.remove(allocation)  # Remove from the allocation list
-                    print(f"Room {room_id} deallocated successfully.")
                     return
+
+            # Handle case where room details are not in the room list
+            room_list.append({"Room ID": room_id, "Room Type": "Unknown", "Price": 0, "Allocated": False})
+            allocation_list.remove(allocation)
+            print(f"Room {room_id} deallocated from {customer_name} with default values.")
+            return
 
     if not room_found:
         print(f"Room {room_id} is not allocated to any customer.")
@@ -78,32 +98,23 @@ def billing_and_deallocation(room_list, allocation_list):
 # Create a backup of room allocation data
 def backup_file():
     try:
-        # File paths
-        original_file = "LHMS_Studentid.txt"
-        backup_file = f"LHMS_Studentid_Backup_{time.strftime('%Y%m%d_%H%M%S')}.txt"
+        backup_file = f"{FILE_NAME.replace('.txt', '')}_Backup_{time.strftime('%Y%m%d_%H%M%S')}.txt"
 
-        # Ensure the file exists
-        if not os.path.exists(original_file):
-            print(f"Error: The file '{original_file}' does not exist.")
+        if not os.path.exists(FILE_NAME):
+            print(f"Error: The file '{FILE_NAME}' does not exist.")
             return
 
-        # Read the file and create a backup
-        with open(original_file, 'r') as file:
+        with open(FILE_NAME, 'r') as file:
             content = file.read()
 
         if not content.strip():
-            print(f"The file '{original_file}' is empty. Nothing to backup.")
+            print(f"The file '{FILE_NAME}' is empty. Nothing to backup.")
             return
 
-        with open(backup_file, 'a') as backup:
+        with open(backup_file, 'w') as backup:  # Use write mode to avoid concatenation
             backup.write(content)
 
         print(f"Backup successful! Content backed up to: {backup_file}")
-
-        # Clear original file content
-        with open(original_file, 'w') as file:
-            file.truncate(0)
-        print(f"Original file '{original_file}' content cleared.")
 
     except IOError as e:
         print(f"File operation error: {e}")
@@ -112,7 +123,7 @@ def backup_file():
 
 # Save room allocation to a file
 def save_room_allocation(allocation_list):
-    with open("LHMS_Studentid.txt", 'w') as file:
+    with open(FILE_NAME, 'w') as file:
         for allocation in allocation_list:
             file.write(f"Room ID: {allocation['Room ID']}, Customer: {allocation['Customer Name']}\n")
     print("Room allocation saved to file.")
@@ -120,7 +131,7 @@ def save_room_allocation(allocation_list):
 # Show room allocation details from a file
 def show_room_allocation():
     try:
-        with open("LHMS_Studentid.txt", 'r') as file:
+        with open(FILE_NAME, 'r') as file:
             content = file.read()
             if content:
                 print("Room Allocation Details:")
@@ -128,7 +139,7 @@ def show_room_allocation():
             else:
                 print("No room allocations found in the file.")
     except FileNotFoundError:
-        print("The file 'LHMS_Studentid.txt' does not exist.")
+        print(f"The file '{FILE_NAME}' does not exist.")
     except IOError as e:
         print(f"Error reading the file: {e}")
 
@@ -136,7 +147,7 @@ def show_room_allocation():
 def hotel_management_menu():
     room_list = []  # List of rooms
     allocation_list = []  # List of allocated rooms
-    
+
     while True:
         print("\nHotel Management System Menu:")
         print("1. Add Room")

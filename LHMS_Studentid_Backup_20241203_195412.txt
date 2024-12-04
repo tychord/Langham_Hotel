@@ -1,2 +1,0 @@
-{'Room No': '122', 'Type': 'Single ', 'Price': '122', 'Features': 'AC'}
-{'Room No': '122', 'Type': 'Single ', 'Price': '122', 'Features': 'AC', 'Status': 'Booked'}
